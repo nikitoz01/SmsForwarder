@@ -73,12 +73,12 @@ import com.xuexiang.xui.widget.dialog.materialdialog.MaterialDialog
 import com.xuexiang.xutil.resource.ResUtils.getStringArray
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import kotlin.jvm.java
 
 @Suppress("PrivatePropertyName", "DEPRECATION")
 @Page(name = "发送通道")
 class SendersFragment : BaseFragment<FragmentSendersBinding?>(),
-    SenderPagingAdapter.OnItemClickListener,
-    RecyclerViewHolder.OnItemClickListener<PageInfo> {
+    SenderPagingAdapter.OnItemClickListener, RecyclerViewHolder.OnItemClickListener<PageInfo> {
 
     private val TAG: String = SendersFragment::class.java.simpleName
     private val that = this
@@ -217,8 +217,9 @@ class SendersFragment : BaseFragment<FragmentSendersBinding?>(),
         titleBar!!.addAction(object : TitleBar.ImageAction(R.drawable.ic_add) {
             @SuppressLint("InflateParams")
             @SingleClick
-            override fun performAction(view: View) {
-                val bottomSheet: View = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_sender_bottom_sheet, null)
+            override fun performAction(view: View?) {
+                val bottomSheet: View = LayoutInflater.from(requireContext())
+                    .inflate(R.layout.dialog_sender_bottom_sheet, null)
                 val recyclerView: RecyclerView = bottomSheet.findViewById(R.id.recyclerView)
 
                 WidgetUtils.initGridRecyclerView(recyclerView, 4, DensityUtils.dp2px(1f))
@@ -226,7 +227,8 @@ class SendersFragment : BaseFragment<FragmentSendersBinding?>(),
                 widgetItemAdapter.setOnItemClickListener(that)
                 recyclerView.adapter = widgetItemAdapter
 
-                val bottomSheetCloseButton: XUIAlphaTextView = bottomSheet.findViewById(R.id.bottom_sheet_close_button)
+                val bottomSheetCloseButton: XUIAlphaTextView =
+                    bottomSheet.findViewById(R.id.bottom_sheet_close_button)
                 bottomSheetCloseButton.setOnClickListener { dialog.dismiss() }
 
                 dialog.setContentView(bottomSheet)
@@ -234,6 +236,17 @@ class SendersFragment : BaseFragment<FragmentSendersBinding?>(),
                 dialog.setCanceledOnTouchOutside(true)
                 dialog.show()
                 WidgetUtils.transparentBottomSheetDialogBackground(dialog)
+            }
+
+        })
+        titleBar!!.addAction(object : TitleBar.ImageAction(R.drawable.ic_add_qr) {
+            @SuppressLint("InflateParams")
+            @SingleClick
+            override fun performAction(view: View) {
+                PageOption
+                    .to(AddQrSendersFragment::class.java)
+                    .setNewActivity(true)
+                    .open(this@SendersFragment)
             }
         })
         return titleBar
@@ -272,7 +285,11 @@ class SendersFragment : BaseFragment<FragmentSendersBinding?>(),
             refreshLayout.layout.postDelayed({
                 //adapter!!.refresh()
                 lifecycleScope.launch {
-                    viewModel.setStatus(currentStatus).allSenders.collectLatest { adapter.submitData(it) }
+                    viewModel.setStatus(currentStatus).allSenders.collectLatest {
+                        adapter.submitData(
+                            it
+                        )
+                    }
                 }
                 refreshLayout.finishRefresh()
             }, 200)
@@ -287,31 +304,24 @@ class SendersFragment : BaseFragment<FragmentSendersBinding?>(),
             R.id.iv_copy -> {
                 PageOption.to(getFragment(item.type))
                     .setNewActivity(true)
-                    .putLong(KEY_SENDER_ID, item.id)
-                    .putInt(KEY_SENDER_TYPE, item.type)
+                    .putLong(KEY_SENDER_ID, item.id).putInt(KEY_SENDER_TYPE, item.type)
                     .putBoolean(KEY_SENDER_CLONE, true)
                     .open(this)
             }
 
             R.id.iv_edit -> {
-                PageOption.to(getFragment(item.type))
-                    .setNewActivity(true)
-                    .putLong(KEY_SENDER_ID, item.id)
-                    .putInt(KEY_SENDER_TYPE, item.type)
-                    .open(this)
+                PageOption.to(getFragment(item.type)).setNewActivity(true)
+                    .putLong(KEY_SENDER_ID, item.id).putInt(KEY_SENDER_TYPE, item.type).open(this)
             }
 
             R.id.iv_delete -> {
-                MaterialDialog.Builder(requireContext())
-                    .title(R.string.delete_sender_title)
-                    .content(R.string.delete_sender_tips)
-                    .positiveText(R.string.lab_yes)
+                MaterialDialog.Builder(requireContext()).title(R.string.delete_sender_title)
+                    .content(R.string.delete_sender_tips).positiveText(R.string.lab_yes)
                     .negativeText(R.string.lab_no)
                     .onPositive { _: MaterialDialog?, _: DialogAction? ->
                         viewModel.delete(item.id)
                         XToastUtils.success(R.string.delete_sender_toast)
-                    }
-                    .show()
+                    }.show()
             }
 
             else -> {}
@@ -324,9 +334,9 @@ class SendersFragment : BaseFragment<FragmentSendersBinding?>(),
     override fun onItemClick(itemView: View, widgetInfo: PageInfo, pos: Int) {
         try {
             @Suppress("UNCHECKED_CAST")
-            PageOption.to(Class.forName(widgetInfo.classPath) as Class<XPageFragment>) //跳转的fragment
-                .setNewActivity(true)
-                .putInt(KEY_SENDER_TYPE, pos) //注意：目前刚好是这个顺序而已
+            PageOption
+                .to(Class.forName(widgetInfo.classPath) as Class<XPageFragment>) //跳转的fragment
+                .setNewActivity(true).putInt(KEY_SENDER_TYPE, pos) //注意：目前刚好是这个顺序而已
                 .open(this)
             dialog.dismiss()
         } catch (e: Exception) {

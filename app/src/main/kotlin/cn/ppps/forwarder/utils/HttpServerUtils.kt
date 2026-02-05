@@ -180,6 +180,7 @@ class HttpServerUtils private constructor() {
                 val extraSim2 = SettingUtils.extraSim2
                 //应用配置
                 SharedPreference.clearPreference()
+                if (cloneInfo.settings.isNotBlank())
                 SharedPreference.importPreference(cloneInfo.settings)
                 //需要排除的配置
                 SettingUtils.extraDeviceMark = extraDeviceMark

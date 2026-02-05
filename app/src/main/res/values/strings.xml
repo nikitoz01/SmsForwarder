@@ -1,4 +1,4 @@
-<resources xmlns:tools="http://schemas.android.com/tools">
+﻿<resources xmlns:tools="http://schemas.android.com/tools">
     <string name="tag_from" translatable="false">{{FROM}}</string>
     <string name="tag_sms" translatable="false">{{SMS}}</string>
     <string name="tag_package_name" translatable="false">{{PACKAGE_NAME}}</string>
@@ -179,6 +179,9 @@
     <string name="send">发送</string>
     <string name="test">测试</string>
     <string name="confirm">确认</string>
+    <string name="camera_permission_title">相机权限</string>
+    <string name="camera_permission_message">需要相机权限用于二维码扫描，是否授权？</string>
+    <string name="qr_parse_failed">二维码解析失败，请确认二维码内容是否正确</string>
     <string name="all">全部</string>
     <string name="select">选择</string>
     <string name="clone">一键克隆</string>
@@ -486,6 +489,7 @@
     <string name="dingtalk_robot">钉钉群机器人</string>
     <string name="dingtalk_inner_robot">钉钉企业机器人</string>
     <string name="email">电子邮箱</string>
+    <string name="qr_scanner">二维码扫描</string>
     <string name="bark">Bark</string>
     <string name="webhook">Webhook</string>
     <string name="wework_robot">企微群机器人</string>

@@ -1,4 +1,4 @@
-<resources xmlns:tools="http://schemas.android.com/tools">
+﻿<resources xmlns:tools="http://schemas.android.com/tools">
 
     <string name="insert_tag_from">Phone Number</string>
     <string name="insert_tag_sms">SMS Content</string>
@@ -149,6 +149,9 @@
     <string name="send">Send</string>
     <string name="test">Test</string>
     <string name="confirm">Confirm</string>
+    <string name="camera_permission_title">Camera permission</string>
+    <string name="camera_permission_message">Camera access is needed to scan QR codes. Allow?</string>
+    <string name="qr_parse_failed">Failed to parse QR code. Please check its content.</string>
     <string name="all">All</string>
     <string name="select">Select</string>
     <string name="clone">Clone</string>
@@ -456,6 +459,7 @@
     <string name="dingtalk_robot">Dingtalk Group Bot</string>
     <string name="dingtalk_inner_robot">Dingtalk Inner Bot</string>
     <string name="email">Email</string>
+    <string name="qr_scanner">QR Scanner</string>
     <string name="bark">Bark</string>
     <string name="webhook">Webhook</string>
     <string name="wework_robot">Wework Bot</string>
