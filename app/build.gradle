@@ -73,7 +73,6 @@ android {
         targetSdkVersion build_versions.target_sdk
         versionCode build_versions.version_code
         versionName = "${build_versions.version_name}.${buildDate}"
-        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField "String", "BUILD_TIME", "\"${buildTime}\""
         buildConfigField "String", "GIT_COMMIT_ID", "\"${gitCommitId}\""
 
@@ -272,6 +271,8 @@ tasks.withType(Test).configureEach {
 configurations.configureEach {
     resolutionStrategy {
         force("androidx.exifinterface:exifinterface:1.3.7")
+        force("androidx.versionedparcelable:versionedparcelable:1.1.1")
+        force("androidx.test:core:1.5.0")
     }
 }
 
@@ -282,10 +283,6 @@ dependencies {
 
     //MQTT协议
     implementation("org.eclipse.paho:org.eclipse.paho.client.mqttv3:1.2.5")
-
-    testImplementation deps.junit
-    androidTestImplementation 'androidx.test.ext:junit:1.3.0'
-    androidTestImplementation deps.espresso.core
 
     //noinspection GradleDependency
     implementation 'androidx.core:core-ktx:1.9.0'
@@ -300,6 +297,7 @@ dependencies {
 
     implementation 'com.github.Cassbana:Barcode-QR-Scanner:0.4.0'
     implementation "androidx.exifinterface:exifinterface:1.3.7"
+    implementation "androidx.versionedparcelable:versionedparcelable:1.1.1"
 
     //分包
     implementation deps.androidx.multidex
