@@ -290,9 +290,6 @@ class HttpServerUtils private constructor() {
                 Core.msg.deleteAll()
                 //发送通道
                 Core.sender.deleteAll()
-
-                println("keklol $senders")
-
                 val sendersWithId = if (senders.isNotEmpty()) {
                     senders.map { sender ->
                         val id: Long = Core.sender.insert(sender)
@@ -302,12 +299,7 @@ class HttpServerUtils private constructor() {
                 } else null
                 //转发规则
 
-                println("keklol $sendersWithId")
-
                 val rules = sendersWithId?.toRules()
-
-                println("keklol $rules")
-
                 Core.rule.deleteAll()
                 if (!rules.isNullOrEmpty()) {
                     for (rule in rules) {

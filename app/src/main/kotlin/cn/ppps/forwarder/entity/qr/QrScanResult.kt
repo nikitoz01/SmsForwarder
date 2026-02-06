@@ -94,7 +94,10 @@ fun List<Sender>.toRules(): List<Rule> = this.map { sender ->
         senderId = sender.id,
         senderList = listOf(sender),
         check = "is",
-        type = type,
+        type = if (type == "sms")
+            "sms"
+        else
+            "app",
         filed = if (type == "sms")
             "transpond_all"
         else
@@ -118,9 +121,8 @@ fun mapSenderType(type: String): Int =
 
 fun mapSenderType(type: Int): String =
     when (type) {
-        TYPE_WEBHOOK -> "webhook"
         TYPE_SMS -> "sms"
-        TYPE_TELEGRAM -> "telegram"
+        TYPE_TELEGRAM -> "app"
         TYPE_EMAIL -> "email"
         TYPE_SOCKET -> "socket"
         TYPE_URL_SCHEME -> "url"
