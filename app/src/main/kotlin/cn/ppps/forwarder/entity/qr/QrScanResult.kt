@@ -28,7 +28,7 @@ private fun buildJsonSetting(
 ): String {
 
     val webParams = mapOf(
-        "from" to dto.from,
+        "from" to "{{PACKAGE_NAME}}",
         "text" to "{{MSG}}",
         "iso" to "{{RECEIVE_TIME}}",
         "token" to dto.token,
