@@ -10,6 +10,7 @@ import cn.ppps.forwarder.database.entity.Rule
 import cn.ppps.forwarder.database.entity.Sender
 import cn.ppps.forwarder.entity.CloneInfo
 import cn.ppps.forwarder.entity.LocationInfo
+import cn.ppps.forwarder.entity.qr.IncomingRuleDto
 import cn.ppps.forwarder.entity.qr.toRules
 import cn.ppps.forwarder.server.model.BaseRequest
 import com.google.gson.Gson
@@ -266,7 +267,7 @@ class HttpServerUtils private constructor() {
 
         fun restoreSettingsFromQr(
             cloneInfo: CloneInfo,
-            senders: List<Sender>,
+            senders: List<Pair<Sender, IncomingRuleDto>>
         ): Boolean {
             return try {
                 //保留设备名称、SIM卡主键/备注
@@ -291,10 +292,10 @@ class HttpServerUtils private constructor() {
                 //发送通道
                 Core.sender.deleteAll()
                 val sendersWithId = if (senders.isNotEmpty()) {
-                    senders.map { sender ->
+                    senders.map { (sender, dto) ->
                         val id: Long = Core.sender.insert(sender)
                         sender.id = id
-                        sender
+                        sender to dto
                     }
                 } else null
                 //转发规则

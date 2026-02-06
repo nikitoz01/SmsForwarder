@@ -28,7 +28,7 @@ private fun buildJsonSetting(
 ): String {
 
     val webParams = mapOf(
-        "from" to "{{PACKAGE_NAME}}",
+        "from" to dto.from,
         "text" to "{{MSG}}",
         "iso" to "{{RECEIVE_TIME}}",
         "token" to dto.token,
@@ -56,7 +56,7 @@ private fun buildJsonSetting(
 fun jsonToSenders(
     json: String,
     gson: Gson = Gson()
-): List<Sender> {
+): List<Pair<Sender, IncomingRuleDto>> {
     val element = JsonParser.parseString(json)
 
     val ruleDtos: List<IncomingRuleDto> = when {
@@ -82,11 +82,11 @@ fun jsonToSenders(
             jsonSetting = buildJsonSetting(dto, gson),
             status = 1,
             time = now
-        )
+        ) to dto
     }
 }
 
-fun List<Sender>.toRules(): List<Rule> = this.map { sender ->
+fun List<Pair<Sender, IncomingRuleDto>>.toRules(): List<Rule> = this.map { (sender, dto) ->
     val type = mapSenderType(sender.type)
 
     Rule(
@@ -102,7 +102,7 @@ fun List<Sender>.toRules(): List<Rule> = this.map { sender ->
             "transpond_all"
         else
             "package_name",
-        value = "{{PACKAGE_NAME}}"
+        value = dto.from ?: ""
     )
 }
 
