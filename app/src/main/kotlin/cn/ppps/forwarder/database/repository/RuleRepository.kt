@@ -11,7 +11,7 @@ class RuleRepository(private val ruleDao: RuleDao) {
     private var listener: Listener? = null
 
     @WorkerThread
-    fun insert(rule: Rule) = ruleDao.insert(rule)
+    fun insert(rule: Rule): Long = ruleDao.insert(rule)
 
     @WorkerThread
     fun delete(id: Long) {

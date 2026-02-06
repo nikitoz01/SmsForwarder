@@ -304,7 +304,10 @@ class HttpServerUtils private constructor() {
                 Core.rule.deleteAll()
                 if (!rules.isNullOrEmpty()) {
                     for (rule in rules) {
-                        Core.rule.insert(rule)
+                        val id = Core.rule.insert(rule)
+                        rule.id = id
+                        rule.title = "rule: $id"
+                        Core.rule.update(rule)
                     }
                 }
                 //Frpc配置

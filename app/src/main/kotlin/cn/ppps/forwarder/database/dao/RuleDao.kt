@@ -17,7 +17,7 @@ import io.reactivex.Single
 interface RuleDao {
 
     @Insert
-    fun insert(rule: Rule)
+    fun insert(rule: Rule): Long
 
     @Delete
     fun delete(rule: Rule): Completable
