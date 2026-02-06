@@ -24,13 +24,18 @@ import cn.ppps.forwarder.activity.MainActivity
 import cn.ppps.forwarder.adapter.SenderPagingAdapter
 import cn.ppps.forwarder.adapter.WidgetItemAdapter
 import cn.ppps.forwarder.core.BaseFragment
+import cn.ppps.forwarder.core.Core.rule
+import cn.ppps.forwarder.database.entity.Rule
 import cn.ppps.forwarder.database.entity.Sender
 import cn.ppps.forwarder.database.viewmodel.BaseViewModelFactory
 import cn.ppps.forwarder.database.viewmodel.SenderViewModel
 import cn.ppps.forwarder.databinding.FragmentQrSendersBinding
 import cn.ppps.forwarder.databinding.FragmentSendersBinding
 import cn.ppps.forwarder.entity.CloneInfo
+import cn.ppps.forwarder.entity.qr.EmptyImport
 import cn.ppps.forwarder.entity.qr.jsonToSenders
+import cn.ppps.forwarder.entity.qr.mapSenderType
+import cn.ppps.forwarder.entity.qr.toRules
 import cn.ppps.forwarder.fragment.senders.BarkFragment
 import cn.ppps.forwarder.fragment.senders.DingtalkGroupRobotFragment
 import cn.ppps.forwarder.fragment.senders.DingtalkInnerRobotFragment
@@ -72,6 +77,8 @@ import cn.ppps.forwarder.utils.XToastUtils
 import com.cassbana.barcode_qr_scanner.Format
 import com.cassbana.barcode_qr_scanner.ScannerBuilder
 import com.cassbana.barcode_qr_scanner.algorithm.Algorithm
+import com.google.gson.GsonBuilder
+import com.google.gson.JsonDeserializer
 import com.scwang.smartrefresh.layout.api.RefreshLayout
 import com.xuexiang.xaop.annotation.SingleClick
 import com.xuexiang.xpage.annotation.Page
@@ -89,6 +96,7 @@ import com.xuexiang.xui.widget.dialog.materialdialog.MaterialDialog
 import com.xuexiang.xutil.resource.ResUtils.getStringArray
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import java.util.Date
 
 @Suppress("PrivatePropertyName", "DEPRECATION")
 @Page(name = "Senders QR")
@@ -129,10 +137,18 @@ class AddQrSendersFragment : BaseFragment<FragmentQrSendersBinding?>() {
                 onBarcodeDetected = {
                     try {
                         val senders = jsonToSenders(it)
-                        if (HttpServerUtils.restoreSettings(
-                                CloneInfo(
-                                    senderList = senders
-                                )
+
+                        val builder = GsonBuilder()
+                        builder.registerTypeAdapter(
+                            Date::class.java,
+                            JsonDeserializer<Any?> { _, _, _ -> Date() })
+                        val gson = builder.create()
+                        val cloneInfo =
+                            gson.fromJson(EmptyImport.emptyImportString, CloneInfo::class.java)
+
+                        if (HttpServerUtils.restoreSettingsFromQr(
+                                cloneInfo,
+                                senders,
                             )
                         ) {
                             MaterialDialog.Builder(requireContext())

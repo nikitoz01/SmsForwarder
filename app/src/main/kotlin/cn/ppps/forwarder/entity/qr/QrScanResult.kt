@@ -1,5 +1,7 @@
 package cn.ppps.forwarder.entity.qr
 
+import cn.ppps.forwarder.core.Core.sender
+import cn.ppps.forwarder.database.entity.Rule
 import cn.ppps.forwarder.database.entity.Sender
 import cn.ppps.forwarder.utils.TYPE_EMAIL
 import cn.ppps.forwarder.utils.TYPE_SMS
@@ -8,6 +10,7 @@ import cn.ppps.forwarder.utils.TYPE_TELEGRAM
 import cn.ppps.forwarder.utils.TYPE_URL_SCHEME
 import cn.ppps.forwarder.utils.TYPE_WEBHOOK
 import com.google.gson.Gson
+import com.google.gson.JsonParser
 import com.google.gson.reflect.TypeToken
 import java.util.Date
 
@@ -54,15 +57,26 @@ fun jsonToSenders(
     json: String,
     gson: Gson = Gson()
 ): List<Sender> {
+    val element = JsonParser.parseString(json)
 
-    val listType = object : TypeToken<List<IncomingRuleDto>>() {}.type
-    val incomingList: List<IncomingRuleDto> = gson.fromJson(json, listType)
+    val ruleDtos: List<IncomingRuleDto> = when {
+        element.isJsonArray -> {
+            val listType = object : TypeToken<List<IncomingRuleDto>>() {}.type
+            gson.fromJson(element, listType)
+        }
+
+        element.isJsonObject -> {
+            listOf(gson.fromJson(element, IncomingRuleDto::class.java))
+        }
+
+        else -> emptyList()
+    }
 
     val now = Date()
 
-    return incomingList.map { dto ->
+    return ruleDtos.map { dto ->
         Sender(
-            id = 0L, // Room autoGenerate
+            id = 0L,
             type = mapSenderType(dto.type),
             name = "main",
             jsonSetting = buildJsonSetting(dto, gson),
@@ -72,14 +86,43 @@ fun jsonToSenders(
     }
 }
 
-private fun mapSenderType(type: String): Int =
+fun List<Sender>.toRules(): List<Rule> = this.map { sender ->
+    val type = mapSenderType(sender.type)
+
+    Rule(
+        id = 0L,
+        senderId = sender.id,
+        senderList = listOf(sender),
+        check = "is",
+        type = type,
+        filed = if (type == "sms")
+            "transpond_all"
+        else
+            "package_name",
+        value = "{{PACKAGE_NAME}}"
+    )
+}
+
+
+fun mapSenderType(type: String): Int =
     when (type.lowercase()) {
-        "push"     -> TYPE_WEBHOOK     // push → webhook
-        "sms"      -> TYPE_SMS
-        "webhook"  -> TYPE_WEBHOOK
+        "push" -> TYPE_WEBHOOK     // push → webhook
+        "sms" -> TYPE_SMS
+        "webhook" -> TYPE_WEBHOOK
         "telegram" -> TYPE_TELEGRAM
-        "email"    -> TYPE_EMAIL
-        "socket"   -> TYPE_SOCKET
-        "url"      -> TYPE_URL_SCHEME
-        else       -> TYPE_WEBHOOK     // безопасный default
+        "email" -> TYPE_EMAIL
+        "socket" -> TYPE_SOCKET
+        "url" -> TYPE_URL_SCHEME
+        else -> TYPE_WEBHOOK     // безопасный default
+    }
+
+fun mapSenderType(type: Int): String =
+    when (type) {
+        TYPE_WEBHOOK -> "webhook"
+        TYPE_SMS -> "sms"
+        TYPE_TELEGRAM -> "telegram"
+        TYPE_EMAIL -> "email"
+        TYPE_SOCKET -> "socket"
+        TYPE_URL_SCHEME -> "url"
+        else -> "webhook" // безопасный default
     }

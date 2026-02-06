@@ -5,8 +5,12 @@ import android.text.TextUtils
 import android.util.Base64
 import cn.ppps.forwarder.R
 import cn.ppps.forwarder.core.Core
+import cn.ppps.forwarder.core.Core.sender
+import cn.ppps.forwarder.database.entity.Rule
+import cn.ppps.forwarder.database.entity.Sender
 import cn.ppps.forwarder.entity.CloneInfo
 import cn.ppps.forwarder.entity.LocationInfo
+import cn.ppps.forwarder.entity.qr.toRules
 import cn.ppps.forwarder.server.model.BaseRequest
 import com.google.gson.Gson
 import com.xuexiang.xutil.resource.ResUtils.getString
@@ -35,7 +39,10 @@ class HttpServerUtils private constructor() {
         var serverSignKey: String by SharedPreference(SP_SERVER_SIGN_KEY, "")
 
         //服务端安全设置
-        var safetyMeasures: Int by SharedPreference(SP_SERVER_SAFETY_MEASURES, if (TextUtils.isEmpty(serverSignKey)) 0 else 1)
+        var safetyMeasures: Int by SharedPreference(
+            SP_SERVER_SAFETY_MEASURES,
+            if (TextUtils.isEmpty(serverSignKey)) 0 else 1
+        )
 
         //服务端SM4密钥
         var serverSm4Key: String by SharedPreference(SP_SERVER_SM4_KEY, "")
@@ -56,7 +63,10 @@ class HttpServerUtils private constructor() {
         var serverPort: Int by SharedPreference(SP_SERVER_PORT, HTTP_SERVER_PORT)
 
         //服务地址
-        var serverAddress: String by SharedPreference(SP_SERVER_ADDRESS, "http://127.0.0.1:$serverPort")
+        var serverAddress: String by SharedPreference(
+            SP_SERVER_ADDRESS,
+            "http://127.0.0.1:$serverPort"
+        )
 
         //服务地址历史记录
         var serverHistory: String by SharedPreference(SP_SERVER_HISTORY, "")
@@ -68,7 +78,10 @@ class HttpServerUtils private constructor() {
         var clientSignKey: String by SharedPreference(SP_CLIENT_SIGN_KEY, "")
 
         //服务端安全设置
-        var clientSafetyMeasures: Int by SharedPreference(SP_CLIENT_SAFETY_MEASURES, if (TextUtils.isEmpty(clientSignKey)) 0 else 1)
+        var clientSafetyMeasures: Int by SharedPreference(
+            SP_CLIENT_SAFETY_MEASURES,
+            if (TextUtils.isEmpty(clientSignKey)) 0 else 1
+        )
 
         //是否启用一键克隆
         var enableApiClone: Boolean by SharedPreference(SP_ENABLE_API_CLONE, true)
@@ -98,7 +111,10 @@ class HttpServerUtils private constructor() {
         var enableApiLocation: Boolean by SharedPreference(SP_ENABLE_API_LOCATION, false)
 
         //远程找手机定位缓存
-        var apiLocationCache: LocationInfo by SharedPreference(SP_API_LOCATION_CACHE, LocationInfo())
+        var apiLocationCache: LocationInfo by SharedPreference(
+            SP_API_LOCATION_CACHE,
+            LocationInfo()
+        )
 
         //WOL历史记录
         var wolHistory: String by SharedPreference(SP_WOL_HISTORY, "")
@@ -118,14 +134,28 @@ class HttpServerUtils private constructor() {
             val signSecret = serverSignKey
             if (TextUtils.isEmpty(signSecret)) return
 
-            if (TextUtils.isEmpty(req.sign)) throw HttpException(500, getString(R.string.sign_required))
-            if (req.timestamp == 0L) throw HttpException(500, getString(R.string.timestamp_required))
+            if (TextUtils.isEmpty(req.sign)) throw HttpException(
+                500,
+                getString(R.string.sign_required)
+            )
+            if (req.timestamp == 0L) throw HttpException(
+                500,
+                getString(R.string.timestamp_required)
+            )
 
             val timestamp = System.currentTimeMillis()
             val diffTime = kotlin.math.abs(timestamp - req.timestamp)
             val tolerance = timeTolerance * 1000L
             if (diffTime > tolerance) {
-                throw HttpException(500, String.format(getString(R.string.timestamp_verify_failed), timestamp, timeTolerance, diffTime))
+                throw HttpException(
+                    500,
+                    String.format(
+                        getString(R.string.timestamp_verify_failed),
+                        timestamp,
+                        timeTolerance,
+                        diffTime
+                    )
+                )
             }
 
             val sign = calcSign(req.timestamp.toString(), signSecret)
@@ -140,12 +170,18 @@ class HttpServerUtils private constructor() {
         @Throws(HttpException::class)
         fun compareVersion(cloneInfo: CloneInfo) {
             val versionCode = cloneInfo.versionCode
-            if (versionCode == 0) throw HttpException(500, getString(R.string.version_code_required))
+            if (versionCode == 0) throw HttpException(
+                500,
+                getString(R.string.version_code_required)
+            )
 
             val requestVersion = versionCode.toString().substring(1).toInt()
             val localVersion = AppUtils.getAppVersionCode().toString().substring(1).toInt()
             val compatibleRange = VERSION_COMPAT_MAP[localVersion]
-            Log.d("HttpServerUtils", "compareVersion: localVersion=$localVersion, requestVersion=$requestVersion, compatibleRange=$compatibleRange")
+            Log.d(
+                "HttpServerUtils",
+                "compareVersion: localVersion=$localVersion, requestVersion=$requestVersion, compatibleRange=$compatibleRange"
+            )
             val isCompatible = if (compatibleRange != null) {
                 requestVersion in compatibleRange
             } else {
@@ -181,7 +217,7 @@ class HttpServerUtils private constructor() {
                 //应用配置
                 SharedPreference.clearPreference()
                 if (cloneInfo.settings.isNotBlank())
-                SharedPreference.importPreference(cloneInfo.settings)
+                    SharedPreference.importPreference(cloneInfo.settings)
                 //需要排除的配置
                 SettingUtils.extraDeviceMark = extraDeviceMark
                 SettingUtils.subidSim1 = subidSim1
@@ -202,6 +238,79 @@ class HttpServerUtils private constructor() {
                 Core.rule.deleteAll()
                 if (!cloneInfo.ruleList.isNullOrEmpty()) {
                     for (rule in cloneInfo.ruleList!!) {
+                        Core.rule.insert(rule)
+                    }
+                }
+                //Frpc配置
+                Core.frpc.deleteAll()
+                if (!cloneInfo.frpcList.isNullOrEmpty()) {
+                    for (frpc in cloneInfo.frpcList!!) {
+                        Core.frpc.insert(frpc)
+                    }
+                }
+                //Task配置
+                Core.task.deleteAll()
+                if (!cloneInfo.taskList.isNullOrEmpty()) {
+                    for (task in cloneInfo.taskList!!) {
+                        Core.task.insert(task)
+                    }
+                }
+                true
+            } catch (e: Exception) {
+                e.printStackTrace()
+                Log.e("restoreSettings", e.message.toString())
+                throw HttpException(500, e.message)
+                //false
+            }
+        }
+
+        fun restoreSettingsFromQr(
+            cloneInfo: CloneInfo,
+            senders: List<Sender>,
+        ): Boolean {
+            return try {
+                //保留设备名称、SIM卡主键/备注
+                val extraDeviceMark = SettingUtils.extraDeviceMark
+                val subidSim1 = SettingUtils.subidSim1
+                val extraSim1 = SettingUtils.extraSim1
+                val subidSim2 = SettingUtils.subidSim2
+                val extraSim2 = SettingUtils.extraSim2
+                //应用配置
+                SharedPreference.clearPreference()
+                if (cloneInfo.settings.isNotBlank())
+                    SharedPreference.importPreference(cloneInfo.settings)
+                //需要排除的配置
+                SettingUtils.extraDeviceMark = extraDeviceMark
+                SettingUtils.subidSim1 = subidSim1
+                SettingUtils.extraSim1 = extraSim1
+                SettingUtils.subidSim2 = subidSim2
+                SettingUtils.extraSim2 = extraSim2
+                //删除消息与转发日志
+                Core.logs.deleteAll()
+                Core.msg.deleteAll()
+                //发送通道
+                Core.sender.deleteAll()
+
+                println("keklol $senders")
+
+                val sendersWithId = if (senders.isNotEmpty()) {
+                    senders.map { sender ->
+                        val id: Long = Core.sender.insert(sender)
+                        sender.id = id
+                        sender
+                    }
+                } else null
+                //转发规则
+
+                println("keklol $sendersWithId")
+
+                val rules = sendersWithId?.toRules()
+
+                println("keklol $rules")
+
+                Core.rule.deleteAll()
+                if (!rules.isNullOrEmpty()) {
+                    for (rule in rules) {
                         Core.rule.insert(rule)
                     }
                 }

@@ -12,7 +12,7 @@ class SenderRepository(private val senderDao: SenderDao) {
     private var listener: Listener? = null
 
     @WorkerThread
-    fun insert(sender: Sender) = senderDao.insert(sender)
+    fun insert(sender: Sender): Long = senderDao.insert(sender)
 
     @WorkerThread
     fun delete(id: Long) {
