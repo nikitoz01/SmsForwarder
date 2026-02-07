@@ -1,10 +1,12 @@
 package cn.ppps.forwarder.utils
 
 
+import android.R.attr.value
 import android.text.TextUtils
 import android.util.Base64
 import cn.ppps.forwarder.R
 import cn.ppps.forwarder.core.Core
+import cn.ppps.forwarder.core.Core.rule
 import cn.ppps.forwarder.core.Core.sender
 import cn.ppps.forwarder.database.entity.Rule
 import cn.ppps.forwarder.database.entity.Sender
@@ -13,11 +15,17 @@ import cn.ppps.forwarder.entity.LocationInfo
 import cn.ppps.forwarder.entity.qr.IncomingRuleDto
 import cn.ppps.forwarder.entity.qr.toRules
 import cn.ppps.forwarder.server.model.BaseRequest
+import cn.ppps.forwarder.utils.SendUtils.senderLogic
+import cn.ppps.forwarder.utils.SettingUtils.Companion.silentPeriodEnd
+import cn.ppps.forwarder.utils.SettingUtils.Companion.silentPeriodStart
+import cn.ppps.forwarder.utils.SettingUtils.Companion.smsTemplate
 import com.google.gson.Gson
 import com.xuexiang.xutil.resource.ResUtils.getString
 import com.yanzhenjie.andserver.error.HttpException
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
+import java.util.Calendar
+import java.util.Date
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 
@@ -265,6 +273,28 @@ class HttpServerUtils private constructor() {
             }
         }
 
+        //返回统一结构报文
+        fun response(output: Any?): String {
+            val resp: MutableMap<String, Any> = mutableMapOf()
+            val timestamp = System.currentTimeMillis()
+            resp["timestamp"] = timestamp
+            if (output is String && output != "success") {
+                resp["code"] = HTTP_FAILURE_CODE
+                resp["msg"] = output
+            } else {
+                resp["code"] = HTTP_SUCCESS_CODE
+                resp["msg"] = "success"
+                if (output != null) {
+                    resp["data"] = output
+                }
+                if (safetyMeasures == 1) {
+                    resp["sign"] = calcSign(timestamp.toString(), serverSignKey)
+                }
+            }
+
+            return Gson().toJson(resp)
+        }
+
         fun restoreSettingsFromQr(
             cloneInfo: CloneInfo,
             senders: List<Pair<Sender, IncomingRuleDto>>
@@ -295,6 +325,8 @@ class HttpServerUtils private constructor() {
                     senders.map { (sender, dto) ->
                         val id: Long = Core.sender.insert(sender)
                         sender.id = id
+                        sender.name += ": $id"
+                        Core.sender.update(sender)
                         sender to dto
                     }
                 } else null
@@ -303,12 +335,14 @@ class HttpServerUtils private constructor() {
                 val rules = sendersWithId?.toRules()
                 Core.rule.deleteAll()
                 if (!rules.isNullOrEmpty()) {
-                    for (rule in rules) {
-                        val id = Core.rule.insert(rule)
-                        rule.id = id
-                        rule.title = "rule: $id"
-                        Core.rule.update(rule)
-                    }
+                    checkForm(
+                        rules.map { rule ->
+                            val id = Core.rule.insert(rule)
+                            rule.id = id
+                            rule.title = "rule: $id"
+                            rule
+                        }
+                    )
                 }
                 //Frpc配置
                 Core.frpc.deleteAll()
@@ -333,26 +367,114 @@ class HttpServerUtils private constructor() {
             }
         }
 
-        //返回统一结构报文
-        fun response(output: Any?): String {
-            val resp: MutableMap<String, Any> = mutableMapOf()
-            val timestamp = System.currentTimeMillis()
-            resp["timestamp"] = timestamp
-            if (output is String && output != "success") {
-                resp["code"] = HTTP_FAILURE_CODE
-                resp["msg"] = output
-            } else {
-                resp["code"] = HTTP_SUCCESS_CODE
-                resp["msg"] = "success"
-                if (output != null) {
-                    resp["data"] = output
-                }
-                if (safetyMeasures == 1) {
-                    resp["sign"] = calcSign(timestamp.toString(), serverSignKey)
-                }
-            }
+        private fun checkForm(rules: List<Rule>) {
+            rules.forEach { rule ->
+                val filed = rule.filed.takeIf {
+                    it in listOf(
+                        FILED_MSG_CONTENT,
+                        FILED_PHONE_NUM,
+                        FILED_CALL_TYPE,
+                        FILED_PACKAGE_NAME,
+                        FILED_UID,
+                        FILED_INFORM_CONTENT,
+                        FILED_MULTI_MATCH,
+                        FILED_TRANSPOND_ALL,
+                    )
+                } ?: FILED_TRANSPOND_ALL
 
-            return Gson().toJson(resp)
+                val check = rule.check.takeIf {
+                    it in listOf(
+                        CHECK_CONTAIN,
+                        CHECK_NOT_CONTAIN,
+                        CHECK_START_WITH,
+                        CHECK_END_WITH,
+                        CHECK_REGEX,
+                    )
+                } ?: CHECK_IS
+                val value = rule.value.trim()
+                val smsTemplate = rule.smsTemplate.trim()
+                val checkResult = CommonUtils.checkTemplateTag(smsTemplate)
+                if (checkResult.isNotEmpty()) {
+                    throw Exception(checkResult)
+                }
+                val regexReplace = rule.regexReplace.trim()
+                val lineNum = checkRegexReplace(regexReplace)
+                if (lineNum > 0) {
+                    throw Exception(
+                        String.format(
+                            getString(R.string.invalid_regex_replace),
+                            lineNum
+                        )
+                    )
+                }
+
+                val senderLogic = rule.senderLogic.takeIf {
+                    it in listOf(
+                        SENDER_LOGIC_ALL,
+                        SENDER_LOGIC_UNTIL_FAIL,
+                        SENDER_LOGIC_UNTIL_SUCCESS,
+                        SENDER_LOGIC_RETRY
+                    )
+                } ?: SENDER_LOGIC_ALL
+
+                val simSlot = rule.simSlot.takeIf {
+                    it in listOf(
+                        CHECK_SIM_SLOT_1,
+                        CHECK_SIM_SLOT_2,
+                        CHECK_SIM_SLOT_ALL,
+                    )
+                } ?: CHECK_SIM_SLOT_ALL
+
+                val status = rule.status.takeIf {
+                    it in 0..1
+                } ?: STATUS_ON
+
+                val silentDayOfWeek = rule.silentDayOfWeek
+
+                val ruleTitle = rule.title.trim()
+                Core.rule.update(
+                    Rule(
+                        rule.id,
+                        rule.type,
+                        filed,
+                        check,
+                        value,
+                        rule.senderId,
+                        smsTemplate,
+                        regexReplace,
+                        simSlot,
+                        status,
+                        Date(),
+                        rule.senderList,
+                        senderLogic,
+                        silentPeriodStart,
+                        silentPeriodEnd,
+                        silentDayOfWeek,
+                        ruleTitle
+                    )
+                )
+            }
+        }
+
+        private fun checkRegexReplace(regexReplace: String?): Int {
+            if (com.xuexiang.xrouter.utils.TextUtils.isEmpty(regexReplace)) return 0
+
+            var lineNum = 1
+            val lineArray = regexReplace?.split("\\n".toRegex())?.toTypedArray()
+            for (line in lineArray!!) {
+                val position = line.indexOf("===")
+                if (position < 1) return lineNum
+
+                // 校验正则表达式部分是否合法
+                try {
+                    line.substring(0, position).toRegex()
+                } catch (e: Exception) {
+                    return lineNum
+                }
+
+                lineNum++
+            }
+            return 0
         }
     }
 }
